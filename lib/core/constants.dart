@@ -31,7 +31,7 @@ class GameConstants {
   static const double ghostPatrolSpeed = 1.7;
   static const double ghostChaseSpeed = 3.0;
   static const double ghostSightRange = 8.0;
-  static const double ghostDrainRange = 2.5;
+  static const double ghostDrainRange = 1.3;
   static const double ghostDrainPerSecond = 10.0;
   static const double ghostSearchDuration = 5.0;
   static const double ghostRepathInterval = 0.35;

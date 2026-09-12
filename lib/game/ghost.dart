@@ -44,6 +44,7 @@ class Ghost {
   void reset() {
     x = spawnX;
     y = spawnY;
+    angle = 0;
     state = GhostState.patrol;
     _route = null;
     _waypointIndex = 0;
@@ -53,9 +54,12 @@ class Ghost {
     _lostSightTimer = 0;
     _searchTimer = 0;
     _drainPulseTimer = 0;
+    _lastSeenX = spawnX;
+    _lastSeenY = spawnY;
   }
 
   void update(double dt, HouseMap map, Player player, GameState gs) {
+    if (dt.isNaN || dt <= 0) return;
     if (dt > 0.1) dt = 0.1;
 
     final pdx = player.x - x;
@@ -71,7 +75,8 @@ class Ghost {
         _search(dt, map, player, dist);
     }
 
-    if (dist <= GameConstants.ghostDrainRange) {
+    if (dist <= GameConstants.ghostDrainRange &&
+        (dist < 0.9 || map.hasLineOfSight(x, y, player.x, player.y))) {
       gs.drainHealth(GameConstants.ghostDrainPerSecond * dt);
       _drainPulseTimer += dt;
       if (_drainPulseTimer >= _drainPulseEvery) {
@@ -131,7 +136,13 @@ class Ghost {
         _nodeIndex++;
       }
     } else if (dist > GameConstants.ghostStopDistance) {
-      _steerToward(player.x, player.y, GameConstants.ghostChaseSpeed, dt, map);
+      // No path (blocked/unreachable): face the player instead of
+      // beelining through walls and sticking on corners.
+      if (map.hasLineOfSight(x, y, player.x, player.y)) {
+        _steerToward(player.x, player.y, GameConstants.ghostChaseSpeed, dt, map);
+      } else {
+        _faceToward(player.x, player.y, dt);
+      }
     } else {
       _faceToward(player.x, player.y, dt);
     }
@@ -164,7 +175,10 @@ class Ghost {
       _beginPatrol();
       return;
     }
-    _steerToward(node.$1, node.$2, GameConstants.ghostPatrolSpeed, dt, map);
+    if (_steerToward(
+        node.$1, node.$2, GameConstants.ghostPatrolSpeed, dt, map)) {
+      _nodeIndex++;
+    }
   }
 
   void _beginChase(Player player) {
@@ -197,18 +211,26 @@ class Ghost {
   }
 
   bool _spotted(HouseMap map, Player player, double dist) {
-    if (dist < _lungeRange) return true;
+    // Point-blank grab connects even around a corner; lunge range and
+    // beyond require line of sight so walls block vision/drain camping.
+    if (dist < 0.9) return true;
     if (dist > GameConstants.ghostSightRange) return false;
+    if (dist < _lungeRange) {
+      return map.hasLineOfSight(x, y, player.x, player.y);
+    }
     return map.hasLineOfSight(x, y, player.x, player.y);
   }
 
   List<(double, double)> _currentRoute(HouseMap map) {
     final cached = _route;
-    if (cached != null) return cached;
+    if (cached != null && cached.isNotEmpty) return cached;
     final routes = map.patrolRoutes;
+    if (routes.isEmpty) return const [(16.5, 6.5)];
     var best = routes.first;
+    if (best.isEmpty) return const [(16.5, 6.5)];
     var bestDist = double.infinity;
     for (final route in routes) {
+      if (route.isEmpty) continue;
       final first = route.first;
       final d =
           (first.$1 - x) * (first.$1 - x) + (first.$2 - y) * (first.$2 - y);
@@ -217,7 +239,18 @@ class Ghost {
         best = route;
       }
     }
-    _waypointIndex = 0;
+    if (best.isEmpty) return const [(16.5, 6.5)];
+    var bestIndex = 0;
+    var bestIndexDist = double.infinity;
+    for (var i = 0; i < best.length; i++) {
+      final w = best[i];
+      final d = (w.$1 - x) * (w.$1 - x) + (w.$2 - y) * (w.$2 - y);
+      if (d < bestIndexDist) {
+        bestIndexDist = d;
+        bestIndex = i;
+      }
+    }
+    _waypointIndex = bestIndex;
     _route = best;
     return best;
   }

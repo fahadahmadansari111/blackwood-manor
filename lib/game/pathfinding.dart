@@ -74,9 +74,13 @@ abstract final class Pathfinding {
       List<int?> cameFrom, int current, int startIndex, int width) {
     final path = <Point>[];
     var node = current;
+    var guard = cameFrom.length + 1;
     while (node != startIndex) {
+      if (guard-- <= 0) return const [];
       path.add(Point(node % width, node ~/ width));
-      node = cameFrom[node]!;
+      final parent = cameFrom[node];
+      if (parent == null) return const [];
+      node = parent;
     }
     return path.reversed.toList(growable: false);
   }

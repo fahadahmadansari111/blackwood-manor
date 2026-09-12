@@ -20,6 +20,7 @@ class GameState extends ChangeNotifier {
   bool get isPlaying => _phase == GamePhase.playing;
 
   void startGame() {
+    if (_phase == GamePhase.playing) return;
     _phase = GamePhase.playing;
     _health = GameConstants.maxHealth;
     _keysCollected = 0;
@@ -31,6 +32,7 @@ class GameState extends ChangeNotifier {
 
   void collectKey() {
     if (_phase != GamePhase.playing) return;
+    if (_keysCollected >= GameConstants.totalKeys) return;
     _keysCollected++;
     if (_keysCollected >= GameConstants.totalKeys) {
       _exitUnlocked = true;
@@ -40,10 +42,11 @@ class GameState extends ChangeNotifier {
 
   void drainHealth(double amount) {
     if (_phase != GamePhase.playing || amount <= 0) return;
+    final before = _health.ceil();
     _health = (_health - amount).clamp(0.0, GameConstants.maxHealth);
     if (_health <= 0) {
       die();
-    } else {
+    } else if (_health.ceil() != before) {
       notifyListeners();
     }
   }
@@ -75,4 +78,11 @@ class GameState extends ChangeNotifier {
   }
 
   bool get _isEscapable => _phase == GamePhase.playing && _exitUnlocked;
+
+  @override
+  void dispose() {
+    ghostProximity.dispose();
+    interactHint.dispose();
+    super.dispose();
+  }
 }

@@ -18,11 +18,12 @@ class Player {
   bool running = false;
 
   void update(double dt, HouseMap map) {
-    if (dt <= 0) return;
+    if (dt <= 0 || dt.isNaN) return;
 
     var fwd = moveForward;
     var strafe = moveStrafe;
     final len = math.sqrt(fwd * fwd + strafe * strafe);
+    if (len < 0.08) return;
     if (len > 1) {
       fwd /= len;
       strafe /= len;
@@ -63,9 +64,10 @@ class Player {
   void _clampToGrid(HouseMap map) {
     final grid = map.grid;
     if (grid.isEmpty || grid[0].isEmpty) return;
+    final r = GameConstants.playerRadius;
     final maxX = grid[0].length.toDouble() * GameConstants.mapTileSize;
     final maxY = grid.length.toDouble() * GameConstants.mapTileSize;
-    x = x < 0 ? 0 : (x > maxX ? maxX : x);
-    y = y < 0 ? 0 : (y > maxY ? maxY : y);
+    x = x < r ? r : (x > maxX - r ? maxX - r : x);
+    y = y < r ? r : (y > maxY - r ? maxY - r : y);
   }
 }

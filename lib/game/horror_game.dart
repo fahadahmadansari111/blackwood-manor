@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flame/game.dart';
 import 'package:flutter/services.dart';
@@ -46,6 +47,8 @@ class HauntedHouseGame extends Game {
 
   void applyLookDelta(double dxPixels) {
     player.angle += dxPixels * 0.0045;
+    if (player.angle > math.pi) player.angle -= 2 * math.pi;
+    if (player.angle < -math.pi) player.angle += 2 * math.pi;
   }
 
   void _startRun() {
@@ -79,12 +82,13 @@ class HauntedHouseGame extends Game {
 
   @override
   void update(double dt) {
+    if (dt.isNaN) return;
     _time += dt;
     _hurtPulse = math.max(0, _hurtPulse - dt * 1.5);
-    _lockedThudCooldown -= dt;
+    _lockedThudCooldown = math.max(0, _lockedThudCooldown - dt);
     if (!gameState.isPlaying) return;
 
-    final clampedDt = dt.clamp(0.0, 0.05);
+    final clampedDt = dt.clamp(0.0, 0.05).toDouble();
     player.moveForward = moveForwardInput;
     player.moveStrafe = moveStrafeInput;
     player.running = runningInput;
@@ -105,6 +109,12 @@ class HauntedHouseGame extends Game {
     _handleExitDoor();
   }
 
+  void _setHint(String hint) {
+    if (gameState.interactHint.value != hint) {
+      gameState.interactHint.value = hint;
+    }
+  }
+
   void _handleExitDoor() {
     final (cx, cy) = map.exitDoorCell;
     final dx = player.x - (cx + 0.5);
@@ -113,8 +123,8 @@ class HauntedHouseGame extends Game {
 
     if (!map.exitOpen) {
       if (dist < GameConstants.exitInteractDistance) {
-        gameState.interactHint.value =
-            'THE MAIN DOOR IS LOCKED — KEYS ${gameState.keysCollected}/${GameConstants.totalKeys}';
+        _setHint(
+            'THE MAIN DOOR IS LOCKED — KEYS ${gameState.keysCollected}/${GameConstants.totalKeys}');
         if (!_nearLockedDoor && _lockedThudCooldown <= 0) {
           soundBank.play(Sfx.doorLocked);
           _lockedThudCooldown = 1.8;
@@ -122,23 +132,24 @@ class HauntedHouseGame extends Game {
         }
         _nearLockedDoor = true;
       } else {
-        gameState.interactHint.value = '';
+        _setHint('');
         _nearLockedDoor = false;
       }
     } else {
       if (dist < GameConstants.exitInteractDistance) {
-        gameState.interactHint.value = 'THE WAY IS OPEN — ESCAPE NOW';
+        _setHint('THE WAY IS OPEN — ESCAPE NOW');
       } else {
-        gameState.interactHint.value = '';
+        _setHint('');
       }
-      if (player.x.floorToDouble() == cx && player.y.floorToDouble() == cy) {
+      if (player.x.floor() == cx && player.y.floor() == cy || dist < 0.6) {
         gameState.reachExit();
       }
     }
   }
 
   @override
-  void render(canvas) {
+  void render(Canvas canvas) {
+    if (size.x <= 0 || size.y <= 0) return;
     final sprites = entities.billboards(_time);
     sprites.add(SpriteBillboard(
       x: ghost.x,
