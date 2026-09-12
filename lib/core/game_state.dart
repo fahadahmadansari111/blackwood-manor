@@ -4,6 +4,8 @@ import 'constants.dart';
 
 enum GamePhase { menu, playing, dead, outro }
 
+enum ViewMode { fps, tps }
+
 class GameState extends ChangeNotifier {
   GamePhase _phase = GamePhase.menu;
   double _health = GameConstants.maxHealth;
@@ -12,12 +14,19 @@ class GameState extends ChangeNotifier {
 
   final ValueNotifier<double> ghostProximity = ValueNotifier<double>(0);
   final ValueNotifier<String> interactHint = ValueNotifier<String>('');
+  final ValueNotifier<ViewMode> viewMode = ValueNotifier<ViewMode>(ViewMode.fps);
 
   GamePhase get phase => _phase;
   double get health => _health;
   int get keysCollected => _keysCollected;
   bool get exitUnlocked => _exitUnlocked;
   bool get isPlaying => _phase == GamePhase.playing;
+  bool get isTps => viewMode.value == ViewMode.tps;
+
+  void toggleViewMode() {
+    viewMode.value =
+        viewMode.value == ViewMode.fps ? ViewMode.tps : ViewMode.fps;
+  }
 
   void startGame() {
     if (_phase == GamePhase.playing) return;
@@ -27,6 +36,7 @@ class GameState extends ChangeNotifier {
     _exitUnlocked = false;
     ghostProximity.value = 0;
     interactHint.value = '';
+    viewMode.value = ViewMode.fps;
     notifyListeners();
   }
 
@@ -74,6 +84,7 @@ class GameState extends ChangeNotifier {
     _exitUnlocked = false;
     ghostProximity.value = 0;
     interactHint.value = '';
+    viewMode.value = ViewMode.fps;
     notifyListeners();
   }
 
@@ -83,6 +94,7 @@ class GameState extends ChangeNotifier {
   void dispose() {
     ghostProximity.dispose();
     interactHint.dispose();
+    viewMode.dispose();
     super.dispose();
   }
 }
