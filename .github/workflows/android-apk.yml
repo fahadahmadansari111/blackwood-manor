@@ -20,6 +20,7 @@ jobs:
 
       - name: Compute next semver tag
         id: semver
+        if: github.ref == 'refs/heads/main'
         run: |
           git fetch --tags --force
           # Find latest vX.Y.Z tag, default to v0.0.0 if none exists
@@ -62,23 +63,41 @@ jobs:
         run: flutter pub get
 
       - name: Build release APK (debug-signed)
-        run: flutter build apk --release --build-name=${{ steps.semver.outputs.version }} --build-number=${{ github.run_number }}
+        run: flutter build apk --release --build-name=${{ steps.semver.outputs.version || '0.0.0-dev' }} --build-number=${{ github.run_number }}
+
+      - name: Rename APK with meaningful name
+        id: apk
+        run: |
+          OUT="build/app/outputs/flutter-apk"
+          if [ -n "${{ steps.semver.outputs.tag }}" ]; then
+            FILENAME="blackwood-manor-${{ steps.semver.outputs.tag }}.apk"
+          else
+            REF="${{ github.head_ref || github.ref_name }}"
+            SAFE=$(echo "$REF" | tr '/"' '__' | tr -d ':<>|*?\\' | cut -c1-60)
+            FILENAME="blackwood-manor-test-${SAFE}-r${{ github.run_number }}.apk"
+          fi
+          mv "$OUT/app-release.apk" "$OUT/$FILENAME"
+          echo "filename=$FILENAME" >> "$GITHUB_OUTPUT"
+          echo "artifact=${FILENAME%.apk}" >> "$GITHUB_OUTPUT"
+          echo "path=$OUT/$FILENAME" >> "$GITHUB_OUTPUT"
+          ls -lh "$OUT"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-${{ steps.semver.outputs.tag }}
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: ${{ steps.apk.outputs.artifact }}
+          path: ${{ steps.apk.outputs.path }}
           if-no-files-found: error
           retention-days: 14
 
       - name: Create GitHub Release (auto-creates tag)
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.semver.outputs.tag }}
           name: Release ${{ steps.semver.outputs.tag }}
           generate_release_notes: true
-          files: build/app/outputs/flutter-apk/app-release.apk
+          files: ${{ steps.apk.outputs.path }}
           draft: false
           prerelease: false
           make_latest: true

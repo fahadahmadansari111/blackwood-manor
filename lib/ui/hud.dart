@@ -21,40 +21,104 @@ class HudOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Stack(
-        children: [
-          Positioned.fill(child: _DangerVignette(gameState: gameState)),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+    return Stack(
+      children: [
+        IgnorePointer(
+          child: Stack(
+            children: [
+              Positioned.fill(child: _DangerVignette(gameState: gameState)),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _HealthPanel(gameState: gameState),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisSize: MainAxisSize.min,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _KeysPanel(gameState: gameState),
-                          const SizedBox(height: 8),
-                          MinimapWidget(game: game),
+                          _HealthPanel(gameState: gameState),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _KeysPanel(gameState: gameState),
+                              const SizedBox(height: 8),
+                              MinimapWidget(game: game),
+                            ],
+                          ),
                         ],
                       ),
+                      _InteractHint(gameState: gameState),
                     ],
                   ),
-                  _InteractHint(gameState: gameState),
-                ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          top: 150,
+          right: 20,
+          child: _ViewModeButton(gameState: gameState),
+        ),
+      ],
+    );
+  }
+}
+
+class _ViewModeButton extends StatelessWidget {
+  const _ViewModeButton({required this.gameState});
+
+  final GameState gameState;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<ViewMode>(
+      valueListenable: gameState.viewMode,
+      builder: (context, mode, _) {
+        final isTps = mode == ViewMode.tps;
+        return SafeArea(
+          child: Material(
+            color: Colors.black.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: gameState.toggleViewMode,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: _dimGray.withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isTps ? Icons.person : Icons.videocam,
+                      size: 16,
+                      color: _bone,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isTps ? 'TPS' : 'FPS',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        letterSpacing: 2,
+                        fontWeight: FontWeight.w700,
+                        color: _bone,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

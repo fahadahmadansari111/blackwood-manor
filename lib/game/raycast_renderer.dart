@@ -48,6 +48,15 @@ class RaycastRenderer {
   static final Paint _hurtPaint = Paint();
   static final List<SpriteBillboard> _drawOrder = <SpriteBillboard>[];
 
+  static final Paint _avatarCoatPaint = Paint()
+    ..color = const Color(0xFF2A2118);
+  static final Paint _avatarHoodPaint = Paint()
+    ..color = const Color(0xFF3B2E20);
+  static final Paint _avatarRimPaint = Paint()
+    ..color = const Color(0xFF5A4A33);
+  static final Paint _avatarShadowPaint = Paint()
+    ..color = const Color(0x66000000);
+
   void render(
     Canvas canvas,
     Size size, {
@@ -56,6 +65,7 @@ class RaycastRenderer {
     required List<SpriteBillboard> sprites,
     required double time,
     required double hurtPulse,
+    bool showPlayerAvatar = false,
   }) {
     _ensureBackgroundShaders(size);
 
@@ -76,6 +86,7 @@ class RaycastRenderer {
     _castWalls(canvas, size, map, player, dirX, dirY, planeX, planeY, time);
     _drawSprites(canvas, size, player, sprites, dirX, dirY, planeX, planeY,
         invDet, time);
+    if (showPlayerAvatar) _drawPlayerAvatar(canvas, size, time);
 
     if (hurtPulse > 0) {
       _hurtPaint.color =
@@ -422,6 +433,34 @@ class RaycastRenderer {
         runStart = -1;
       }
     }
+  }
+
+  static void _drawPlayerAvatar(Canvas canvas, Size size, double time) {
+    final cx = size.width * 0.5 + math.sin(time * 1.7) * size.width * 0.004;
+    final h = size.height;
+    final headR = h * 0.11;
+    final headCY = h * 0.78 + math.sin(time * 2.2) * h * 0.004;
+    final shoulderY = headCY + headR * 0.9;
+    final shoulderHW = headR * 1.9;
+
+    final bodyPath = Path()
+      ..moveTo(cx - shoulderHW, h + 2)
+      ..lineTo(cx - shoulderHW, shoulderY)
+      ..quadraticBezierTo(cx - shoulderHW, headCY - headR * 0.2,
+          cx - headR * 1.05, headCY - headR * 0.1)
+      ..quadraticBezierTo(
+          cx, headCY - headR * 1.9, cx + headR * 1.05, headCY - headR * 0.1)
+      ..quadraticBezierTo(cx + shoulderHW, headCY - headR * 0.2,
+          cx + shoulderHW, shoulderY)
+      ..lineTo(cx + shoulderHW, h + 2)
+      ..close();
+    canvas.drawPath(bodyPath, _avatarShadowPaint);
+    canvas.drawPath(bodyPath, _avatarCoatPaint);
+
+    canvas.drawCircle(Offset(cx, headCY), headR * 1.02, _avatarRimPaint);
+    canvas.drawCircle(Offset(cx, headCY), headR * 0.88, _avatarHoodPaint);
+    canvas.drawCircle(
+        Offset(cx, headCY + headR * 0.18), headR * 0.52, _avatarCoatPaint);
   }
 
   static void _drawGhostFeatures(
