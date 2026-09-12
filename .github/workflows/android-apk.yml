@@ -18,23 +18,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Detect branch
-        id: branch
-        run: |
-          echo "event=${{ github.event_name }}"
-          echo "ref=${{ github.ref }}"
-          echo "ref_name=${{ github.ref_name }}"
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "is_main=true" >> "$GITHUB_OUTPUT"
-            echo "This is a MAIN run: semver + release enabled."
-          else
-            echo "is_main=false" >> "$GITHUB_OUTPUT"
-            echo "This is a NON-MAIN run: test APK only, no release."
-          fi
-
       - name: Compute next semver tag
         id: semver
-        if: steps.branch.outputs.is_main == 'true'
+        if: github.ref == 'refs/heads/main'
         run: |
           git fetch --tags --force
           # Find latest vX.Y.Z tag, default to v0.0.0 if none exists
@@ -105,7 +91,7 @@ jobs:
           retention-days: 14
 
       - name: Create GitHub Release (auto-creates tag)
-        if: steps.branch.outputs.is_main == 'true'
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.semver.outputs.tag }}
