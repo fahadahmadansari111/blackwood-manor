@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flame/game.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../audio/sound_bank.dart';
@@ -41,9 +42,15 @@ class HauntedHouseGame extends Game {
   double _time = 0;
   double _hurtPulse = 0;
   double _lockedThudCooldown = 0;
+  double _minimapAccum = 0;
   bool _nearLockedDoor = false;
   bool _exitWasOpen = false;
   GamePhase _prevPhase = GamePhase.menu;
+
+  /// Throttled tick (~12Hz) driving the Flutter minimap repaint.
+  /// Avoids rebuilding Flutter widgets at the full 60fps game rate.
+  final ValueNotifier<int> minimapTick = ValueNotifier<int>(0);
+  static const double minimapTickInterval = 0.08;
 
   void applyLookDelta(double dxPixels) {
     player.angle += dxPixels * 0.0045;
@@ -60,6 +67,8 @@ class HauntedHouseGame extends Game {
     _lockedThudCooldown = 0;
     _nearLockedDoor = false;
     _exitWasOpen = false;
+    _minimapAccum = 0;
+    minimapTick.value = 0;
     moveForwardInput = 0;
     moveStrafeInput = 0;
     runningInput = false;
@@ -86,6 +95,11 @@ class HauntedHouseGame extends Game {
     _time += dt;
     _hurtPulse = math.max(0, _hurtPulse - dt * 1.5);
     _lockedThudCooldown = math.max(0, _lockedThudCooldown - dt);
+    _minimapAccum += dt;
+    if (_minimapAccum >= minimapTickInterval) {
+      _minimapAccum = 0;
+      minimapTick.value++;
+    }
     if (!gameState.isPlaying) return;
 
     final clampedDt = dt.clamp(0.0, 0.05).toDouble();
@@ -171,6 +185,7 @@ class HauntedHouseGame extends Game {
   @override
   void onRemove() {
     gameState.removeListener(_onPhaseChanged);
+    minimapTick.dispose();
     super.onRemove();
   }
 }

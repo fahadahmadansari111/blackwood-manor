@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../core/constants.dart';
 import '../core/game_state.dart';
+import '../game/horror_game.dart';
+import 'minimap.dart';
 
 const Color _bone = Color(0xFFECEFF1);
 const Color _blood = Color(0xFFB71C1C);
@@ -12,9 +14,10 @@ const Color _amber = Color(0xFFFFC107);
 const Color _green = Color(0xFF4CAF50);
 
 class HudOverlay extends StatelessWidget {
-  const HudOverlay({super.key, required this.gameState});
+  const HudOverlay({super.key, required this.gameState, required this.game});
 
   final GameState gameState;
+  final HauntedHouseGame game;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +37,15 @@ class HudOverlay extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _HealthPanel(gameState: gameState),
-                      _KeysPanel(gameState: gameState),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _KeysPanel(gameState: gameState),
+                          const SizedBox(height: 8),
+                          MinimapWidget(game: game),
+                        ],
+                      ),
                     ],
                   ),
                   _InteractHint(gameState: gameState),

@@ -84,7 +84,7 @@ class _GameShellState extends State<GameShell> {
                     enabled: _gameState.isPlaying,
                     child: const SizedBox.expand(),
                   ),
-                  if (_gameState.isPlaying) HudOverlay(gameState: _gameState),
+                  if (_gameState.isPlaying) HudOverlay(gameState: _gameState, game: game),
                   if (_gameState.phase == GamePhase.menu)
                     MenuScreen(gameState: _gameState),
                   if (_gameState.phase == GamePhase.dead)
