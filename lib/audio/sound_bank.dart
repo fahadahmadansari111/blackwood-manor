@@ -45,14 +45,22 @@ class SoundBank {
   AudioPlayer? _ambient;
   AudioPlayer? _heartbeat;
   bool _ready = false;
+  Future<void>? _initFuture;
   int _nextPoolIndex = 0;
   double _appliedTension = -1;
 
   /// Synthesizes all buffers and creates players. Idempotent; safe to await
   /// multiple times. All other methods no-op until this completes.
-  Future<void> init() async {
+  Future<void> init() {
+    final existing = _initFuture;
+    if (existing != null) return existing;
+    final future = _init();
+    _initFuture = future;
+    return future;
+  }
+
+  Future<void> _init() async {
     if (_ready) return;
-    _ready = true;
 
     _bytes[SfxIds.ambient] = SynthEngine.encodeWav(SynthEngine.droneLoop());
     _bytes[SfxIds.heartbeat] = SynthEngine.encodeWav(SynthEngine.heartbeat());
@@ -71,6 +79,7 @@ class SoundBank {
       await player.setReleaseMode(ReleaseMode.release);
       _pool.add(player);
     }
+    _ready = true;
   }
 
   Future<void> startAmbient() async {
@@ -117,6 +126,7 @@ class SoundBank {
 
   Future<void> dispose() async {
     _ready = false;
+    _initFuture = null;
     for (final player in [_ambient, _heartbeat, ..._pool]) {
       if (player == null) continue;
       try {

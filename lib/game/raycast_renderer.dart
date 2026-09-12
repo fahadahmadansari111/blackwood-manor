@@ -166,10 +166,11 @@ class RaycastRenderer {
           side = 1;
         }
         cell = map.cellAt(mapX, mapY);
-        if (cell != CellType.empty) break;
+        if (map.isSolid(mapX + 0.5, mapY + 0.5)) break;
       }
 
-      var perp = cell != CellType.empty ? travelled : maxDist;
+      final hitSolid = map.isSolid(mapX + 0.5, mapY + 0.5);
+      var perp = hitSolid ? travelled : maxDist;
       if (perp < 0.0001) perp = 0.0001;
       _zBuffer[i] = perp;
 
@@ -179,7 +180,7 @@ class RaycastRenderer {
       final xRight = i == rays - 1 ? w : xLeft + colW;
       final rect = Rect.fromLTRB(xLeft, yTop, xRight, yTop + sliceH);
 
-      if (cell == CellType.empty) {
+      if (!hitSolid) {
         _wallPaint.color = const Color(0xFF000000);
         canvas.drawRect(rect, _wallPaint);
         continue;

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -55,7 +57,8 @@ class _GameShellState extends State<GameShell> {
 
   @override
   void dispose() {
-    _soundBank.dispose();
+    unawaited(_soundBank.dispose());
+    _game?.onRemove();
     _gameState.dispose();
     super.dispose();
   }
@@ -66,28 +69,33 @@ class _GameShellState extends State<GameShell> {
         HauntedHouseGame(gameState: _gameState, soundBank: _soundBank);
     return Scaffold(
       backgroundColor: Colors.black,
-      body: AnimatedBuilder(
-        animation: _gameState,
-        builder: (context, _) {
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              GameWidget(game: game),
-              GameInputLayer(
-                game: game,
-                enabled: _gameState.isPlaying,
-                child: const SizedBox.expand(),
-              ),
-              if (_gameState.isPlaying) HudOverlay(gameState: _gameState),
-              if (_gameState.phase == GamePhase.menu)
-                MenuScreen(gameState: _gameState),
-              if (_gameState.phase == GamePhase.dead)
-                DeathScreen(gameState: _gameState),
-              if (_gameState.phase == GamePhase.outro)
-                OutroCinematic(onComplete: _gameState.backToMenu),
-            ],
-          );
-        },
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          GameWidget(game: game),
+          AnimatedBuilder(
+            animation: _gameState,
+            builder: (context, _) {
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  GameInputLayer(
+                    game: game,
+                    enabled: _gameState.isPlaying,
+                    child: const SizedBox.expand(),
+                  ),
+                  if (_gameState.isPlaying) HudOverlay(gameState: _gameState),
+                  if (_gameState.phase == GamePhase.menu)
+                    MenuScreen(gameState: _gameState),
+                  if (_gameState.phase == GamePhase.dead)
+                    DeathScreen(gameState: _gameState),
+                  if (_gameState.phase == GamePhase.outro)
+                    OutroCinematic(onComplete: _gameState.backToMenu),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -122,6 +130,15 @@ class _GameInputLayerState extends State<GameInputLayer> {
     widget.game.moveForwardInput = 0;
     widget.game.moveStrafeInput = 0;
     widget.game.runningInput = false;
+  }
+
+  @override
+  void didUpdateWidget(GameInputLayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.enabled && !widget.enabled) {
+      _resetStick();
+      _lookPointerId = null;
+    }
   }
 
   void _onDown(PointerDownEvent event) {
