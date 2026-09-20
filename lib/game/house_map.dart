@@ -1,12 +1,56 @@
 import 'dart:math' show sqrt;
 
 import '../core/constants.dart';
+import 'map_generator.dart';
 
-/// Hand-authored single floor of Blackwood Manor: 32x32 tiles,
+/// Single floor of Blackwood Manor: 32x32 tiles,
 /// `grid[y][x]`, y = 0 is the north wall, x = 0 is the west wall.
+///
+/// `HouseMap()` / `HouseMap.classic()` return the hand-authored layout
+/// (regression fallback). `HouseMap.generate()` returns a new hybrid
+/// randomized manor every call — same theme, new rooms/doors/spawns.
 class HouseMap {
-  HouseMap() {
-    _build();
+  HouseMap() : this.classic();
+
+  HouseMap.classic() {
+    _buildClassic();
+    _keySpawns = _classicKeys;
+    _patrolRoutes = _classicPatrols;
+    _playerSpawn =
+        (GameConstants.playerStartX, GameConstants.playerStartY);
+    _ghostSpawn = (GameConstants.ghostSpawnX, GameConstants.ghostSpawnY);
+    seed = 0;
+  }
+
+  HouseMap._generated({
+    required List<List<int>> grid,
+    required List<(double, double)> keySpawns,
+    required List<List<(double, double)>> patrolRoutes,
+    required (double, double) playerSpawn,
+    required (double, double) ghostSpawn,
+    required (int, int) exitCell,
+    required this.seed,
+  })  : _keySpawns = keySpawns,
+        _patrolRoutes = patrolRoutes,
+        _playerSpawn = playerSpawn,
+        _ghostSpawn = ghostSpawn,
+        _exitCell = exitCell {
+    this.grid.addAll(grid);
+  }
+
+  /// Returns a new random manor. `seed` is exposed for tests/debugging;
+  /// omit it for a fresh random layout every run.
+  factory HouseMap.generate({int? seed}) {
+    final manor = MapGenerator.generate(seed: seed);
+    return HouseMap._generated(
+      grid: manor.grid,
+      keySpawns: manor.keySpawns,
+      patrolRoutes: manor.patrolRoutes,
+      playerSpawn: manor.playerSpawn,
+      ghostSpawn: manor.ghostSpawn,
+      exitCell: manor.exitCell,
+      seed: manor.seed,
+    );
   }
 
   final List<List<int>> grid = [];
@@ -14,14 +58,21 @@ class HouseMap {
   bool exitOpen = false;
 
   late final (int, int) _exitCell;
+  late final List<(double, double)> _keySpawns;
+  late final List<List<(double, double)>> _patrolRoutes;
+  late final (double, double) _playerSpawn;
+  late final (double, double) _ghostSpawn;
 
-  static const List<(double, double)> _keySpawns = [
+  /// Seed used for generation (0 = hand-authored classic).
+  late final int seed;
+
+  static const List<(double, double)> _classicKeys = [
     (3.5, 19.5), // kitchen, south-west corner
     (28.5, 19.5), // library, south-east corner
     (29.5, 3.5), // cellar, east dead-end gallery
   ];
 
-  static const List<List<(double, double)>> _patrolRoutes = [
+  static const List<List<(double, double)>> _classicPatrols = [
     // West wing kitchen circuit.
     [(5.5, 9.5), (5.5, 18.5), (8.5, 18.5), (8.5, 12.5), (5.5, 12.5)],
     // East wing library loop via the north corridor.
@@ -48,8 +99,9 @@ class HouseMap {
 
   (int, int) get exitDoorCell => _exitCell;
 
-  (double, double) get playerSpawn =>
-      (GameConstants.playerStartX, GameConstants.playerStartY);
+  (double, double) get playerSpawn => _playerSpawn;
+
+  (double, double) get ghostSpawn => _ghostSpawn;
 
   List<(double, double)> get keySpawns => _keySpawns;
 
@@ -73,7 +125,7 @@ class HouseMap {
     return true;
   }
 
-  void _build() {
+  void _buildClassic() {
     grid
       ..clear()
       ..addAll(

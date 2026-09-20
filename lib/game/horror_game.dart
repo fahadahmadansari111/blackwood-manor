@@ -27,7 +27,7 @@ class HauntedHouseGame extends Game {
   final GameState gameState;
   final SoundBank soundBank;
 
-  final HouseMap map = HouseMap();
+  HouseMap map = HouseMap.classic();
   final Ghost ghost =
       Ghost(GameConstants.ghostSpawnX, GameConstants.ghostSpawnY);
   final RaycastRenderer renderer = const RaycastRenderer();
@@ -86,10 +86,14 @@ class HauntedHouseGame extends Game {
   }
 
   void _startRun() {
+    // Fresh random manor every run.
+    map = HouseMap.generate();
     map.exitOpen = false;
-    player = Player();
+    final spawn = map.playerSpawn;
+    player = Player.at(spawn.$1, spawn.$2);
     entities = WorldEntities(spawns: map.keySpawns);
-    ghost.reset();
+    final gSpawn = map.ghostSpawn;
+    ghost.respawn(gSpawn.$1, gSpawn.$2);
     _hurtPulse = 0;
     _lockedThudCooldown = 0;
     _nearLockedDoor = false;
