@@ -9,6 +9,8 @@ class Player {
         y = GameConstants.playerStartY,
         angle = GameConstants.playerStartAngle;
 
+  Player.at(this.x, this.y, [this.angle = GameConstants.playerStartAngle]);
+
   double x;
   double y;
   double angle;

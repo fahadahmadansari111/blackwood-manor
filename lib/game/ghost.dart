@@ -13,8 +13,8 @@ class Ghost {
       : spawnX = x,
         spawnY = y;
 
-  final double spawnX;
-  final double spawnY;
+  double spawnX;
+  double spawnY;
 
   double x;
   double y;
@@ -40,6 +40,17 @@ class Ghost {
   double _drainPulseTimer = 0;
   double _lastSeenX = 0;
   double _lastSeenY = 0;
+
+  void setSpawn(double sx, double sy) {
+    spawnX = sx;
+    spawnY = sy;
+  }
+
+  /// Moves the home spawn (for a new random manor) and resets state.
+  void respawn(double sx, double sy) {
+    setSpawn(sx, sy);
+    reset();
+  }
 
   void reset() {
     x = spawnX;
