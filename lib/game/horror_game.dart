@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../audio/sound_bank.dart';
 import '../core/constants.dart';
+import '../core/difficulty.dart';
 import '../core/game_state.dart';
 import 'entities.dart';
 import 'ghost.dart';
@@ -16,20 +17,28 @@ import 'raycast_renderer.dart';
 
 class HauntedHouseGame extends Game {
   HauntedHouseGame({required this.gameState, required this.soundBank}) {
+    _wireGhost(ghosts.first);
+    gameState.addListener(_onPhaseChanged);
+  }
+
+  void _wireGhost(Ghost ghost) {
     ghost.onAggro = () => soundBank.play(Sfx.ghostAggro);
     ghost.onDrainTick = () {
       _hurtPulse = math.min(1.0, _hurtPulse + 0.55);
       HapticFeedback.heavyImpact();
     };
-    gameState.addListener(_onPhaseChanged);
   }
 
   final GameState gameState;
   final SoundBank soundBank;
 
   HouseMap map = HouseMap.classic();
-  final Ghost ghost =
-      Ghost(GameConstants.ghostSpawnX, GameConstants.ghostSpawnY);
+  final List<Ghost> ghosts = [
+    Ghost(GameConstants.ghostSpawnX, GameConstants.ghostSpawnY),
+  ];
+
+  /// Primary ghost (backwards compatibility for HUD/minimap/tests).
+  Ghost get ghost => ghosts.first;
   final RaycastRenderer renderer = const RaycastRenderer();
 
   Player player = Player();
@@ -86,14 +95,35 @@ class HauntedHouseGame extends Game {
   }
 
   void _startRun() {
-    // Fresh random manor every run.
-    map = HouseMap.generate();
+    final difficulty = gameState.difficulty;
+    // Easy: one fixed simple map every time; otherwise a fresh random manor.
+    map = DifficultyConfig.useFixedMap(difficulty)
+        ? HouseMap.classic()
+        : HouseMap.generate();
     map.exitOpen = false;
     final spawn = map.playerSpawn;
     player = Player.at(spawn.$1, spawn.$2);
     entities = WorldEntities(spawns: map.keySpawns);
-    final gSpawn = map.ghostSpawn;
-    ghost.respawn(gSpawn.$1, gSpawn.$2);
+    final tuning = DifficultyConfig.tuning(difficulty);
+    final spawns = <(double, double)>[
+      map.ghostSpawn,
+      ...map.extraGhostSpawns,
+    ];
+    ghosts.clear();
+    for (var i = 0;
+        i < DifficultyConfig.ghostCount(difficulty) && i < spawns.length;
+        i++) {
+      final s = spawns[i];
+      final g = Ghost(s.$1, s.$2)..tuning = tuning;
+      _wireGhost(g);
+      ghosts.add(g);
+    }
+    if (ghosts.isEmpty) {
+      final s = map.ghostSpawn;
+      final g = Ghost(s.$1, s.$2)..tuning = tuning;
+      _wireGhost(g);
+      ghosts.add(g);
+    }
     _hurtPulse = 0;
     _lockedThudCooldown = 0;
     _nearLockedDoor = false;
@@ -138,7 +168,11 @@ class HauntedHouseGame extends Game {
     player.moveStrafe = moveStrafeInput;
     player.running = runningInput;
     player.update(clampedDt, map);
-    ghost.update(clampedDt, map, player, gameState);
+    // Proximity is max-kept across ghosts; reset each frame first.
+    gameState.ghostProximity.value = 0;
+    for (final ghost in ghosts) {
+      ghost.update(clampedDt, map, player, gameState);
+    }
 
     final collected = entities.tryCollect(player, gameState);
     if (collected > 0) {
@@ -196,12 +230,14 @@ class HauntedHouseGame extends Game {
   void render(Canvas canvas) {
     if (size.x <= 0 || size.y <= 0) return;
     final sprites = entities.billboards(_time);
-    sprites.add(SpriteBillboard(
-      x: ghost.x,
-      y: ghost.y,
-      kind: SpriteKind.ghost,
-      scale: GameConstants.ghostBillboardScale,
-    ));
+    for (final ghost in ghosts) {
+      sprites.add(SpriteBillboard(
+        x: ghost.x,
+        y: ghost.y,
+        kind: SpriteKind.ghost,
+        scale: GameConstants.ghostBillboardScale,
+      ));
+    }
     final isTps = gameState.isTps;
     renderer.render(
       canvas,

@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import '../core/constants.dart';
+import '../core/difficulty.dart';
 import '../core/game_state.dart';
 import 'house_map.dart';
 import 'pathfinding.dart';
@@ -19,6 +20,9 @@ class Ghost {
   double x;
   double y;
   double angle = 0;
+
+  /// Per-difficulty behavior; set at spawn from [DifficultyConfig.tuning].
+  GhostTuning tuning = GhostTuning.medium;
 
   GhostState state = GhostState.patrol;
 
@@ -88,7 +92,7 @@ class Ghost {
 
     if (dist <= GameConstants.ghostDrainRange &&
         (dist < 0.9 || map.hasLineOfSight(x, y, player.x, player.y))) {
-      gs.drainHealth(GameConstants.ghostDrainPerSecond * dt);
+      gs.drainHealth(tuning.drainPerSecond * dt);
       _drainPulseTimer += dt;
       if (_drainPulseTimer >= _drainPulseEvery) {
         _drainPulseTimer -= _drainPulseEvery;
@@ -98,9 +102,13 @@ class Ghost {
       _drainPulseTimer = 0;
     }
 
-    final closeness = (GameConstants.proximityZero - dist) /
+    final double closeness = (GameConstants.proximityZero - dist) /
         (GameConstants.proximityZero - GameConstants.proximityFull);
-    gs.ghostProximity.value = closeness < 0 ? 0 : (closeness > 1 ? 1 : closeness);
+    final double clamped = closeness < 0 ? 0 : (closeness > 1 ? 1 : closeness);
+    // Multiple ghosts share one proximity meter: keep the worst threat.
+    if (clamped > gs.ghostProximity.value) {
+      gs.ghostProximity.value = clamped;
+    }
   }
 
   void _patrol(double dt, HouseMap map, Player player, double dist) {
@@ -111,7 +119,7 @@ class Ghost {
     final route = _currentRoute(map);
     final waypoint = route[_waypointIndex];
     if (_steerToward(
-        waypoint.$1, waypoint.$2, GameConstants.ghostPatrolSpeed, dt, map)) {
+        waypoint.$1, waypoint.$2, tuning.patrolSpeed, dt, map)) {
       _waypointIndex = (_waypointIndex + 1) % route.length;
     }
   }
@@ -143,14 +151,14 @@ class Ghost {
     final node = _nextNode();
     if (node != null) {
       if (_steerToward(
-          node.$1, node.$2, GameConstants.ghostChaseSpeed, dt, map)) {
+          node.$1, node.$2, tuning.chaseSpeed, dt, map)) {
         _nodeIndex++;
       }
     } else if (dist > GameConstants.ghostStopDistance) {
       // No path (blocked/unreachable): face the player instead of
       // beelining through walls and sticking on corners.
       if (map.hasLineOfSight(x, y, player.x, player.y)) {
-        _steerToward(player.x, player.y, GameConstants.ghostChaseSpeed, dt, map);
+        _steerToward(player.x, player.y, tuning.chaseSpeed, dt, map);
       } else {
         _faceToward(player.x, player.y, dt);
       }
@@ -187,7 +195,7 @@ class Ghost {
       return;
     }
     if (_steerToward(
-        node.$1, node.$2, GameConstants.ghostPatrolSpeed, dt, map)) {
+        node.$1, node.$2, tuning.patrolSpeed, dt, map)) {
       _nodeIndex++;
     }
   }
@@ -225,7 +233,7 @@ class Ghost {
     // Point-blank grab connects even around a corner; lunge range and
     // beyond require line of sight so walls block vision/drain camping.
     if (dist < 0.9) return true;
-    if (dist > GameConstants.ghostSightRange) return false;
+    if (dist > tuning.sightRange) return false;
     if (dist < _lungeRange) {
       return map.hasLineOfSight(x, y, player.x, player.y);
     }

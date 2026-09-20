@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../core/constants.dart';
+import '../core/difficulty.dart';
 import '../core/game_state.dart';
 
 const Color _bone = Color(0xFFECEFF1);
@@ -33,45 +34,10 @@ class MenuScreen extends StatelessWidget {
               ),
             ),
             const Spacer(flex: 4),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: _blood.withValues(alpha: 0.40),
-                    blurRadius: 30,
-                    spreadRadius: 2,
-                  ),
-                  BoxShadow(
-                    color: _blood.withValues(alpha: 0.18),
-                    blurRadius: 64,
-                    spreadRadius: 10,
-                  ),
-                ],
-              ),
-              child: OutlinedButton(
-                onPressed: gameState.startGame,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _bone,
-                  backgroundColor: Colors.black,
-                  side: const BorderSide(color: _blood, width: 2),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 56,
-                    vertical: 16,
-                  ),
-                ),
-                child: const Text(
-                  'START',
-                  style: TextStyle(
-                    fontSize: 20,
-                    letterSpacing: 8,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
+            for (final difficulty in Difficulty.values) ...[
+              _ModeButton(gameState: gameState, difficulty: difficulty),
+              const SizedBox(height: 12),
+            ],
             const Spacer(flex: 3),
             Padding(
               padding: const EdgeInsets.only(bottom: 18),
@@ -87,6 +53,74 @@ class MenuScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ModeButton extends StatelessWidget {
+  const _ModeButton({required this.gameState, required this.difficulty});
+
+  final GameState gameState;
+  final Difficulty difficulty;
+
+  @override
+  Widget build(BuildContext context) {
+    final isHard = difficulty == Difficulty.hard;
+    final border = isHard ? _blood : _dimGray;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            boxShadow: [
+              if (isHard)
+                BoxShadow(
+                  color: _blood.withValues(alpha: 0.40),
+                  blurRadius: 30,
+                  spreadRadius: 2,
+                ),
+              if (isHard)
+                BoxShadow(
+                  color: _blood.withValues(alpha: 0.18),
+                  blurRadius: 64,
+                  spreadRadius: 10,
+                ),
+            ],
+          ),
+          child: OutlinedButton(
+            onPressed: () => gameState.startGame(difficulty),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _bone,
+              backgroundColor: Colors.black,
+              side: BorderSide(color: border, width: 2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(3),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 48,
+                vertical: 12,
+              ),
+            ),
+            child: Text(
+              DifficultyConfig.label(difficulty),
+              style: const TextStyle(
+                fontSize: 20,
+                letterSpacing: 8,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          DifficultyConfig.tagline(difficulty),
+          style: TextStyle(
+            fontSize: 11,
+            letterSpacing: 2,
+            color: _bone.withValues(alpha: 0.45),
+          ),
+        ),
+      ],
     );
   }
 }

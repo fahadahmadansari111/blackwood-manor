@@ -19,6 +19,7 @@ class HouseMap {
     _playerSpawn =
         (GameConstants.playerStartX, GameConstants.playerStartY);
     _ghostSpawn = (GameConstants.ghostSpawnX, GameConstants.ghostSpawnY);
+    _extraGhostSpawns = _classicExtraGhosts;
     seed = 0;
   }
 
@@ -28,12 +29,14 @@ class HouseMap {
     required List<List<(double, double)>> patrolRoutes,
     required (double, double) playerSpawn,
     required (double, double) ghostSpawn,
+    required List<(double, double)> extraGhostSpawns,
     required (int, int) exitCell,
     required this.seed,
   })  : _keySpawns = keySpawns,
         _patrolRoutes = patrolRoutes,
         _playerSpawn = playerSpawn,
         _ghostSpawn = ghostSpawn,
+        _extraGhostSpawns = extraGhostSpawns,
         _exitCell = exitCell {
     this.grid.addAll(grid);
   }
@@ -48,6 +51,7 @@ class HouseMap {
       patrolRoutes: manor.patrolRoutes,
       playerSpawn: manor.playerSpawn,
       ghostSpawn: manor.ghostSpawn,
+      extraGhostSpawns: manor.extraGhostSpawns,
       exitCell: manor.exitCell,
       seed: manor.seed,
     );
@@ -62,6 +66,7 @@ class HouseMap {
   late final List<List<(double, double)>> _patrolRoutes;
   late final (double, double) _playerSpawn;
   late final (double, double) _ghostSpawn;
+  late final List<(double, double)> _extraGhostSpawns;
 
   /// Seed used for generation (0 = hand-authored classic).
   late final int seed;
@@ -79,6 +84,13 @@ class HouseMap {
     [(24.5, 6.5), (24.5, 13.5), (28.5, 18.5), (21.5, 18.5), (24.5, 18.5)],
     // Great hall north-south crossing.
     [(15.5, 6.5), (15.5, 20.5), (13.5, 20.5), (13.5, 10.5), (15.5, 10.5)],
+  ];
+
+  /// Hard-mode reinforcements on the classic map (unused on easy, which
+  /// only ever spawns one ghost, but kept valid for completeness).
+  static const List<(double, double)> _classicExtraGhosts = [
+    (5.5, 6.5),
+    (27.5, 6.5),
   ];
 
   void openExit() => exitOpen = true;
@@ -102,6 +114,8 @@ class HouseMap {
   (double, double) get playerSpawn => _playerSpawn;
 
   (double, double) get ghostSpawn => _ghostSpawn;
+
+  List<(double, double)> get extraGhostSpawns => _extraGhostSpawns;
 
   List<(double, double)> get keySpawns => _keySpawns;
 
