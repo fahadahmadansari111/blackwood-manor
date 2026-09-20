@@ -52,4 +52,7 @@ class GameConstants {
 
   static const double proximityFull = 0.5;
   static const double proximityZero = 7.0;
+
+  static const double tpsCameraDistance = 1.1;
+  static const double tpsMinDistance = 0.3;
 }

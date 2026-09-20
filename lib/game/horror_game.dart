@@ -58,6 +58,33 @@ class HauntedHouseGame extends Game {
     if (player.angle < -math.pi) player.angle += 2 * math.pi;
   }
 
+  /// Camera used for rendering. In TPS mode the camera is pulled behind
+  /// the player, stopping before walls so it never clips through them.
+  Player get renderCamera {
+    if (!gameState.isTps) return player;
+    final backX = -math.cos(player.angle);
+    final backY = -math.sin(player.angle);
+    var dist = 0.0;
+    const steps = 8;
+    for (var i = 1; i <= steps; i++) {
+      final t = GameConstants.tpsCameraDistance * i / steps;
+      final cx = player.x + backX * t;
+      final cy = player.y + backY * t;
+      if (map.isSolid(cx, cy)) break;
+      dist = t;
+    }
+    if (dist < GameConstants.tpsMinDistance) {
+      final minX = player.x + backX * GameConstants.tpsMinDistance;
+      final minY = player.y + backY * GameConstants.tpsMinDistance;
+      if (map.isSolid(minX, minY)) return player;
+      dist = GameConstants.tpsMinDistance;
+    }
+    return Player()
+      ..x = player.x + backX * dist
+      ..y = player.y + backY * dist
+      ..angle = player.angle;
+  }
+
   void _startRun() {
     // Fresh random manor every run.
     map = HouseMap.generate();
@@ -175,14 +202,16 @@ class HauntedHouseGame extends Game {
       kind: SpriteKind.ghost,
       scale: GameConstants.ghostBillboardScale,
     ));
+    final isTps = gameState.isTps;
     renderer.render(
       canvas,
       size.toSize(),
       map: map,
-      player: player,
+      player: isTps ? renderCamera : player,
       sprites: sprites,
       time: _time,
       hurtPulse: _hurtPulse,
+      showPlayerAvatar: isTps,
     );
   }
 
