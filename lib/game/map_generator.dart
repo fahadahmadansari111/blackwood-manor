@@ -232,6 +232,33 @@ class MapGenerator {
     final ghostSpawn =
         (ghostCell.$1 + 0.5, ghostCell.$2 + 0.5);
 
+    // --- Extra ghost spawns (hard mode): 2 more far-apart reachable
+    // cells, >=10 from the player, the main ghost spawn and each other.
+    // Falls back to patrol-band cells so the run never breaks. ---
+    final extraGhostSpawns = <(double, double)>[];
+    final farShuffled = walkables.toList()..shuffle(rng);
+    farShuffled.sort((a, b) => (dist[b.$2][b.$1] + rng.nextDouble() * 6)
+        .compareTo(dist[a.$2][a.$1] + rng.nextDouble() * 6));
+    final taken = <(int, int)>[(pcx, pcy), ghostCell];
+    for (final c in farShuffled) {
+      if (extraGhostSpawns.length >= 2) break;
+      var ok = true;
+      for (final t in taken) {
+        final dx = (c.$1 - t.$1).toDouble();
+        final dy = (c.$2 - t.$2).toDouble();
+        if (dx * dx + dy * dy < 100) {
+          ok = false;
+          break;
+        }
+      }
+      if (!ok) continue;
+      extraGhostSpawns.add((c.$1 + 0.5, c.$2 + 0.5));
+      taken.add(c);
+    }
+    while (extraGhostSpawns.length < 2) {
+      extraGhostSpawns.add(ghostSpawn);
+    }
+
     // --- Keys: 3 reachable, >=14 apart, >=6 (euclidean) from player.
     // Order by BFS distance + noise: far-first for horror pacing, noisy
     // for variety; second pass is a pure shuffle if greedy fails. ---
@@ -317,6 +344,7 @@ class MapGenerator {
       patrolRoutes: patrols,
       playerSpawn: playerSpawn,
       ghostSpawn: ghostSpawn,
+      extraGhostSpawns: extraGhostSpawns,
       exitCell: exitCell,
       seed: attemptSeed,
     );
@@ -420,6 +448,7 @@ class GeneratedManor {
     required this.patrolRoutes,
     required this.playerSpawn,
     required this.ghostSpawn,
+    required this.extraGhostSpawns,
     required this.exitCell,
     required this.seed,
   });
@@ -429,6 +458,7 @@ class GeneratedManor {
   final List<List<(double, double)>> patrolRoutes;
   final (double, double) playerSpawn;
   final (double, double) ghostSpawn;
+  final List<(double, double)> extraGhostSpawns;
   final (int, int) exitCell;
   final int seed;
 
@@ -450,6 +480,7 @@ class GeneratedManor {
       ],
       playerSpawn: const (16.5, 26.5),
       ghostSpawn: const (16.5, 6.5),
+      extraGhostSpawns: const [(8.5, 6.5), (24.5, 6.5)],
       exitCell: const (16, 31),
       seed: seed,
     );

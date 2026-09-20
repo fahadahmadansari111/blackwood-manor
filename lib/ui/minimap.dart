@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../core/constants.dart';
+import '../core/difficulty.dart';
+import '../core/game_state.dart';
 import '../game/horror_game.dart';
 import '../game/house_map.dart';
 
@@ -10,17 +12,28 @@ import '../game/house_map.dart';
 ///
 /// Player is always fixed at the center facing up; ghost, exit and nearby
 /// walls are plotted as offset vectors rotated by `-player.angle`.
+/// On easy the radar additionally marks uncollected keys and always shows
+/// the ghost; on hard the radar is replaced by a warning (see [_RadarSlot]).
 class MinimapWidget extends StatelessWidget {
-  const MinimapWidget({super.key, required this.game, this.size = 124});
+  const MinimapWidget(
+      {super.key,
+      required this.game,
+      required this.gameState,
+      this.size = 124});
 
   final HauntedHouseGame game;
+  final GameState gameState;
   final double size;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: game.minimapTick,
+      animation: Listenable.merge([game.minimapTick, gameState]),
       builder: (context, _) {
+        final difficulty = gameState.difficulty;
+        if (!DifficultyConfig.radarEnabled(difficulty)) {
+          return _BlindRadar(size: size);
+        }
         final px = game.player.x;
         final py = game.player.y;
         final pa = game.player.angle;
@@ -30,12 +43,19 @@ class MinimapWidget extends StatelessWidget {
         final gdx = game.ghost.x - px;
         final gdy = game.ghost.y - py;
         final gdist = math.sqrt(gdx * gdx + gdy * gdy);
-        final ghostVisible = MinimapMath.isGhostVisible(
-          dist: gdist,
-          range: MinimapMath.radarRange,
-          hasLineOfSight:
-              game.map.hasLineOfSight(px, py, game.ghost.x, game.ghost.y),
-        );
+        final ghostVisible = DifficultyConfig.alwaysShowGhost(difficulty) ||
+            MinimapMath.isGhostVisible(
+              dist: gdist,
+              range: MinimapMath.radarRange,
+              hasLineOfSight:
+                  game.map.hasLineOfSight(px, py, game.ghost.x, game.ghost.y),
+            );
+        final keys = DifficultyConfig.showKeysOnRadar(difficulty)
+            ? [
+                for (final k in game.entities.keys)
+                  if (!k.collected) (k.x, k.y),
+              ]
+            : const <(double, double)>[];
         return Container(
           width: size,
           height: size,
@@ -64,6 +84,7 @@ class MinimapWidget extends StatelessWidget {
                   exitX: exitX,
                   exitY: exitY,
                   exitOpen: game.map.exitOpen,
+                  keys: keys,
                   tick: game.minimapTick.value,
                 ),
               ),
@@ -71,6 +92,47 @@ class MinimapWidget extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Hard-mode replacement for the radar: no positional information.
+class _BlindRadar extends StatelessWidget {
+  const _BlindRadar({this.size = 124});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.black.withValues(alpha: 0.62),
+        border: Border.all(
+          color: const Color(0xFF616161).withValues(alpha: 0.7),
+          width: 1.2,
+        ),
+        boxShadow: const [
+          BoxShadow(color: Colors.black54, blurRadius: 8),
+        ],
+      ),
+      child: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(12),
+          child: Text(
+            "DON'T LOOK HERE",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              letterSpacing: 2,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFFB71C1C),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -131,6 +193,7 @@ class MinimapPainter extends CustomPainter {
     required this.exitX,
     required this.exitY,
     required this.exitOpen,
+    this.keys = const [],
     required this.tick,
   });
 
@@ -144,6 +207,7 @@ class MinimapPainter extends CustomPainter {
   final double exitX;
   final double exitY;
   final bool exitOpen;
+  final List<(double, double)> keys;
   final int tick;
 
   @override
@@ -243,8 +307,33 @@ class MinimapPainter extends CustomPainter {
         ..color = exitColor.withValues(alpha: 0.7),
     );
 
-    if (ghostVisible) {
-      final ghostOff = MinimapMath.project(
+    // Easy mode: uncollected key positions as amber diamonds.
+    if (keys.isNotEmpty) {
+      final keyPaint = Paint()..color = const Color(0xFFFFC107);
+      for (final key in keys) {
+        final keyOff = MinimapMath.project(
+          playerX: playerX,
+          playerY: playerY,
+          playerAngle: playerAngle,
+          entityX: key.$1,
+          entityY: key.$2,
+          range: range,
+          radius: radius - 10,
+        );
+        if (keyOff.distance > radius - 5) continue;
+        final kPos = center + keyOff;
+        const kr = 3.4;
+        final diamond = Path()
+          ..moveTo(kPos.dx, kPos.dy - kr)
+          ..lineTo(kPos.dx + kr, kPos.dy)
+          ..lineTo(kPos.dx, kPos.dy + kr)
+          ..lineTo(kPos.dx - kr, kPos.dy)
+          ..close();
+        canvas.drawPath(diamond, keyPaint);
+      }
+    }
+
+    if (ghostVisible) {      final ghostOff = MinimapMath.project(
         playerX: playerX,
         playerY: playerY,
         playerAngle: playerAngle,
@@ -290,6 +379,7 @@ class MinimapPainter extends CustomPainter {
         oldDelegate.ghostY != ghostY ||
         oldDelegate.ghostVisible != ghostVisible ||
         oldDelegate.exitOpen != exitOpen ||
+        oldDelegate.keys != keys ||
         oldDelegate.tick != tick;
   }
 }

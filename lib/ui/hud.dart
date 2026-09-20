@@ -3,8 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../core/constants.dart';
+import '../core/difficulty.dart';
 import '../core/game_state.dart';
 import '../game/horror_game.dart';
+import 'expanded_map.dart';
 import 'minimap.dart';
 
 const Color _bone = Color(0xFFECEFF1);
@@ -23,39 +25,45 @@ class HudOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        IgnorePointer(
-          child: Stack(
-            children: [
-              Positioned.fill(child: _DangerVignette(gameState: gameState)),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _HealthPanel(gameState: gameState),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _KeysPanel(gameState: gameState),
-                              const SizedBox(height: 8),
-                              MinimapWidget(game: game),
-                            ],
-                          ),
-                        ],
-                      ),
-                      _InteractHint(gameState: gameState),
-                    ],
-                  ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: _DangerVignette(gameState: gameState),
+          ),
+        ),
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    IgnorePointer(
+                      child: _HealthPanel(gameState: gameState),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IgnorePointer(
+                          child: _KeysPanel(gameState: gameState),
+                        ),
+                        const SizedBox(height: 8),
+                        // Tappable on easy (seer map), transparent to
+                        // touch otherwise so look-drag keeps working.
+                        _RadarSlot(gameState: gameState, game: game),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                IgnorePointer(
+                  child: _InteractHint(gameState: gameState),
+                ),
+              ],
+            ),
           ),
         ),
         Positioned(
@@ -63,7 +71,42 @@ class HudOverlay extends StatelessWidget {
           right: 20,
           child: _ViewModeButton(gameState: gameState),
         ),
+        ValueListenableBuilder<bool>(
+          valueListenable: gameState.mapExpanded,
+          builder: (context, expanded, _) {
+            if (!expanded) return const SizedBox.shrink();
+            return Positioned.fill(
+              child: ExpandedMapOverlay(game: game, gameState: gameState),
+            );
+          },
+        ),
       ],
+    );
+  }
+}
+
+/// Mode-aware radar slot: tappable seer map on easy, plain radar on
+/// medium, blind warning on hard (handled inside [MinimapWidget]).
+class _RadarSlot extends StatelessWidget {
+  const _RadarSlot({required this.gameState, required this.game});
+
+  final GameState gameState;
+  final HauntedHouseGame game;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: gameState,
+      builder: (context, _) {
+        final radar = MinimapWidget(game: game, gameState: gameState);
+        if (gameState.difficulty != Difficulty.easy) {
+          return IgnorePointer(child: radar);
+        }
+        return GestureDetector(
+          onTap: gameState.toggleMapExpanded,
+          child: radar,
+        );
+      },
     );
   }
 }
